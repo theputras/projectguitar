@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Setting;
-use App\Services\ImageService;
 use Illuminate\Http\Request;
 
 class AdminHomeController extends Controller
@@ -16,19 +15,15 @@ class AdminHomeController extends Controller
 
     public function update(Request $request)
     {
-        $validated = $request->validate([
-            'about_image'     => 'nullable|image|mimes:jpeg,png,jpg,webp|max:10240',
-            'release_image_1' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:10240',
-            'release_image_2' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:10240',
-            'release_image_3' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:10240',
-        ]);
-
         // 1. Handle Text Inputs
         foreach ($request->except('_token', '_method') as $key => $value) {
+            // Jika input adalah file, skip dulu (ditangani di bawah)
             if ($request->hasFile($key)) {
                 continue;
             }
             
+            // Jika key bukan key gambar (karena gambar akan dihandle terpisah)
+            // Kita simpan text biasa
             if (!in_array($key, ['about_image', 'release_image_1', 'release_image_2', 'release_image_3'])) {
                 Setting::updateOrCreate(['key' => $key], ['value' => $value]);
             }
@@ -36,14 +31,17 @@ class AdminHomeController extends Controller
 
         // 2. Handle File Uploads (About Image)
         if ($request->hasFile('about_image')) {
+            $file = $request->file('about_image');
+            $filename = 'about_' . time() . '.' . $file->getClientOriginalExtension();
+            $file->move(public_path('uploads'), $filename);
+            
+            // Hapus gambar lama jika ada (opsional)
             $oldImage = Setting::where('key', 'about_image')->first();
-            if ($oldImage) {
-                ImageService::delete($oldImage->value);
+            if ($oldImage && file_exists(public_path($oldImage->value))) {
+                unlink(public_path($oldImage->value));
             }
 
-            // High quality for home banner
-            $result = ImageService::upload($request->file('about_image'), 'settings', 1920, 1080, 85);
-            Setting::updateOrCreate(['key' => 'about_image'], ['value' => $result['path']]);
+            Setting::updateOrCreate(['key' => 'about_image'], ['value' => 'uploads/' . $filename]);
         }
 
         // 3. Handle File Uploads (Release Ars Images - 3 Slot)
@@ -51,14 +49,17 @@ class AdminHomeController extends Controller
             $fileKey = 'release_image_' . $i;
             
             if ($request->hasFile($fileKey)) {
+                $file = $request->file($fileKey);
+                $filename = 'release_' . $i . '_' . time() . '.' . $file->getClientOriginalExtension();
+                $file->move(public_path('uploads'), $filename);
+
+                // Hapus gambar lama
                 $oldImage = Setting::where('key', $fileKey)->first();
-                if ($oldImage) {
-                    ImageService::delete($oldImage->value);
+                if ($oldImage && file_exists(public_path($oldImage->value))) {
+                    unlink(public_path($oldImage->value));
                 }
 
-                // Square-ish aspect ratio for release images, good quality
-                $result = ImageService::upload($request->file($fileKey), 'settings', 800, 800, 80);
-                Setting::updateOrCreate(['key' => $fileKey], ['value' => $result['path']]);
+                Setting::updateOrCreate(['key' => $fileKey], ['value' => 'uploads/' . $filename]);
             }
         }
 

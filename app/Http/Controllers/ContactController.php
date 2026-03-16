@@ -2,38 +2,31 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Contact;
 use Illuminate\Http\Request;
 
 class ContactController extends Controller
 {
-    // Display the contact / order form
+    // Method untuk menampilkan form
     public function create()
     {
         return view('contact');
     }
 
-    // Store a new contact inquiry
+    // Method untuk mengirim data form (store)
     public function store(Request $request)
     {
+        // Validasi sederhana
         $validated = $request->validate([
-            'name'            => 'required|string|min:3|max:255',
-            'email'           => 'required|email|max:255',
-            'phone'           => 'nullable|string|max:50',
-            'country'         => 'nullable|string|max:100',
-            'instrument'      => 'nullable|string|max:255',
-            'instrument_type' => 'nullable|in:bass,guitar,other',
-            'budget_range'    => 'nullable|string|max:100',
-            'message'         => 'required|string|min:10|max:5000',
-            'inquiry_type'    => 'nullable|in:general,order,technical',
+            'name' => 'required|min:3',
+            'email' => 'required|email',
+            'instrument' => 'nullable',
+            'message' => 'required|min:10'
         ]);
 
-        // Default inquiry type to 'general' if not provided
-        $validated['inquiry_type'] = $validated['inquiry_type'] ?? 'general';
-        $validated['status'] = 'new';
+        // Di sini Anda bisa menambahkan logic pengiriman email atau simpan ke database
+        // Contoh: Mail::to('admin@site.com')->send(new ContactMail($validated));
 
-        Contact::create($validated);
-
-        return back()->with('success', 'Thank you! Your message has been sent. We will respond within 24-48 hours.');
+        // Kembali ke halaman contact dengan pesan sukses
+        return back()->with('success', 'Terima kasih! Pesan Anda telah terkirim.');
     }
 }
